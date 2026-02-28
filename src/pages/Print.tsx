@@ -2,11 +2,12 @@ import { useRef } from 'react';
 import styled from '@emotion/styled';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { BsArrowLeftCircle } from 'react-icons/bs';
-import ReactToPrint from 'react-to-print';
+import { useReactToPrint } from 'react-to-print';
 import { Button, Detail, Flex, HighlightText, Overview } from '../components';
 import { useAppSelector } from '../store/store';
 import { getIsAdmin } from '../store/userSlice';
 import { routes, controls } from '../constants';
+import { toast } from 'react-toastify';
 
 const PrintPage = () => {
 	const {
@@ -16,8 +17,16 @@ const PrintPage = () => {
 	const navigate = useNavigate();
 	const isAdmin = useAppSelector(getIsAdmin);
 
-	const printRef = useRef(null);
+	const printRef = useRef<HTMLDivElement>(null);
 	const query = { inOrder: controls[0], year, month, workerName: '' };
+
+	const handlePrint = useReactToPrint({
+		contentRef: printRef,
+		documentTitle: 'print',
+		onBeforePrint: async () => {
+			await new Promise(resolve => setTimeout(resolve, 50));
+		},
+	});
 
 	return (
 		<Container>
@@ -29,20 +38,26 @@ const PrintPage = () => {
 				<Flex gap="16px">
 					<HighlightText color={'var(--bg-color)'} bgColor={'var(--text-color)'}>{`${year}월 ${month}월`}</HighlightText>
 
-					<ReactToPrint
-						trigger={() => (
-							<PrintButton type="button" disabled={!isAdmin}>
-								{isAdmin ? '출력하기' : 'Admin Only'}
-							</PrintButton>
-						)}
-						content={() => printRef.current}
-					/>
+					<PrintButton
+						type="button"
+						onClick={() => {
+							if (!printRef.current) {
+								toast.error('문제가 발생했습니다. 다시 시도해 주세요.');
+								console.error('ref 문제 발생');
+								return;
+							}
+
+							handlePrint();
+						}}
+						disabled={!isAdmin}>
+						{isAdmin ? '출력하기' : 'Admin Only'}
+					</PrintButton>
 				</Flex>
 			</Flex>
-			<Data ref={printRef}>
+			<div ref={printRef} style={{ borderColor: 'var(--color-dark)' }}>
 				<Overview query={query} />
 				<Detail query={query} />
-			</Data>
+			</div>
 		</Container>
 	);
 };
@@ -91,10 +106,6 @@ const PrintButton = styled(Button)<{ disabled: boolean }>`
 	&:hover {
 		background-color: ${({ disabled }) => (disabled ? 'var(--color-gray-500)' : 'var(--color-green-200)')};
 	}
-`;
-
-const Data = styled.div`
-	border-color: var(--color-dark);
 `;
 
 export default PrintPage;
